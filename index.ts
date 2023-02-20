@@ -96,45 +96,47 @@ export const exportEvents: S3Plugin['exportEvents'] = async (events, meta) => {
 export const sendBatchToS3 = async (events: ProcessedPluginEvent[], meta: PluginMeta<S3Plugin>) => {
     const { global, config } = meta
 
-    console.log(`Trying to send batch to S3...`)
+    console.log(`Trying to send batch with size ${events.length} to S3...`)
 
     const date = new Date().toISOString()
     const [day, time] = date.split('T')
     const dayTime = `${day.split('-').join('')}-${time.split(':').join('')}`
     const suffix = randomBytes(8).toString('hex')
 
-    const params: S3.PutObjectRequest = {
-        Bucket: config.s3BucketName,
-        Key: `narasimha/${dayTime}-narasimha.jsonl`,
-        Body: convertEventBatchToBuffer(events),
-    }
-
-    if (config.compression === 'gzip') {
-        params.Key = `${params.Key}.gz`
-        params.Body = gzipSync(params.Body as Buffer)
-    }
-
-    if (config.compression === 'brotli') {
-        params.Key = `${params.Key}.br`
-        params.Body = brotliCompressSync(params.Body as Buffer)
-    }
-
-    if (config.sse !== 'disabled') {
-        params.ServerSideEncryption = config.sse
-    }
-
-    if (config.sse === 'aws:kms') {
-        params.SSEKMSKeyId = config.sseKmsKeyId
-    }
-
-    return new Promise<void>((resolve, reject) => {
-        global.s3.upload(params, (err: Error, _: ManagedUpload.SendData) => {
-            if (err) {
-                console.error(`Error uploading to S3: ${err.message}`)
-                return reject(new RetryError())
-            }
-            console.log(`Uploaded ${events.length} event${events.length === 1 ? '' : 's'} to bucket ${config.s3BucketName}`)
-            resolve()
+    events.forEach((event) => {
+        const params: S3.PutObjectRequest = {
+            Bucket: config.s3BucketName,
+            Key: `${suffix}/${dayTime}-${event.event}-${event.person?event.person:event.distinct_id}.jsonl`,
+            Body: convertEventBatchToBuffer([event]),
+        }
+        if (config.compression === 'gzip') {
+            params.Key = `${params.Key}.gz`
+            params.Body = gzipSync(params.Body as Buffer)
+        }
+    
+        if (config.compression === 'brotli') {
+            params.Key = `${params.Key}.br`
+            params.Body = brotliCompressSync(params.Body as Buffer)
+        }
+    
+        if (config.sse !== 'disabled') {
+            params.ServerSideEncryption = config.sse
+        }
+        if (config.sse === 'aws:kms') {
+            params.SSEKMSKeyId = config.sseKmsKeyId
+        }
+    
+        return new Promise<void>((resolve, reject) => {
+            
+            global.s3.upload(params, (err: Error, _: ManagedUpload.SendData) => {
+                if (err) {
+                    console.error(`Error uploading to S3: ${err.message}`)
+                    return reject(new RetryError())
+                }
+                console.log(`Uploaded ${event.event} event${events.length === 1 ? '' : 's'} with ${event.distinct_id} id to bucket ${config.s3BucketName}`)
+                resolve()
+            })
         })
     })
+    
 }
