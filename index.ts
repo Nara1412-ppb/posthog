@@ -31,8 +31,9 @@ type S3Plugin = Plugin<{
     config: PluginConfig
 }>
 
-export function convertEventBatchToBuffer(events: ProcessedPluginEvent[]): Buffer {
-    return Buffer.from(events.map((event) => JSON.stringify(event)).join('\n'), 'utf8')
+export function convertEventBatchToBuffer(event: ProcessedPluginEvent): Blob {
+    return event;
+    // return Buffer.from(events.map((event) => JSON.stringify(event)).join('\n'), 'utf8')
 }
 
 // export function downloadData(xlsFile: any, filename:string) {
@@ -116,7 +117,7 @@ export const sendBatchToS3 = async (events: ProcessedPluginEvent[], meta: Plugin
         const params: S3.PutObjectRequest = {
             Bucket: config.s3BucketName,
             Key: fileName,
-            Body: convertEventBatchToBuffer([event]),
+            Body: convertEventBatchToBuffer(event),
         }
         if (config.compression === 'gzip') {
             params.Key = `${params.Key}.gz`
