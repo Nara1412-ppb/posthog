@@ -3,6 +3,7 @@ import { randomBytes } from 'crypto'
 import { brotliCompressSync, gzipSync } from 'zlib'
 import { Plugin, PluginMeta, ProcessedPluginEvent, RetryError } from '@posthog/plugin-scaffold'
 import { ManagedUpload } from 'aws-sdk/clients/s3'
+import * as XLSX from 'xlsx'
 import { Blob } from 'aws-sdk/lib/dynamodb/document_client'
 
 export type PluginConfig = {
@@ -31,17 +32,17 @@ type S3Plugin = Plugin<{
     config: PluginConfig
 }>
 
-export function convertEventBatchToBuffer(event: ProcessedPluginEvent): Blob {
-    return event;
+export function convertEventBatchToBuffer(event: ProcessedPluginEvent, fileName:string): Buffer {
+    const EXCEL_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8';
+    let ws = XLSX.utils.json_to_sheet([event]);
+    let wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Events");
+    var out = XLSX.write(wb, {bookType:'xlsx',  type: 'binary'});
+    // let binaryData = [];
+    // binaryData.push(out);
+    return Buffer.from(out,'binary');
     // return Buffer.from(events.map((event) => JSON.stringify(event)).join('\n'), 'utf8')
 }
-
-// export function downloadData(xlsFile: any, filename:string) {
-//     const data = xlsFile;
-//     let ws = XLSX.utils.json_to_sheet(data);
-//     let wb = XLSX.utils.book_new();
-
-// }
 
 export const setupPlugin: S3Plugin['setupPlugin'] = (meta) => {
     const { global, config } = meta
@@ -117,7 +118,7 @@ export const sendBatchToS3 = async (events: ProcessedPluginEvent[], meta: Plugin
         const params: S3.PutObjectRequest = {
             Bucket: config.s3BucketName,
             Key: fileName,
-            Body: convertEventBatchToBuffer(event),
+            Body: convertEventBatchToBuffer(event, fileName),
         }
         if (config.compression === 'gzip') {
             params.Key = `${params.Key}.gz`
