@@ -1,44 +1,55 @@
-# PostHog Plugin Starter Kit
+# S3 Export Plugin
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-red.svg?style=flat-square)](https://opensource.org/licenses/MIT)
+Export events to Amazon S3 on ingestion. Archive your data, or simply free it up for other kinds of analysis, by integrating export right into your event processing pipeline.
 
-This is a PostHog plugin template.
-
-The existing sample code adds property `"greeting"` to every event with a configurable value (default: `"Hello world!"`).  
-But that is just to help you get started! To make it your own:
-- [ ] Add your code to `index.js`.
-- [ ] Add your metadata and configuration schema to `plugin.json`.
-- [ ] Search for `<TODO:`, make sure none are left!
-- [ ] Optional: Add a `logo.png` file to give this plugin its own logo.
-- [ ] Create a README.MD for your plugin which follows [our documentation guidelines](https://posthog.com/docs/plugins/build). 
-
-If you're looking for inspiration, here are a few exemplary plugins:
-
-1. [Hello World](https://github.com/PostHog/helloworldplugin) – basic event processing, with tests
-1. [S3 Export](https://github.com/PostHog/s3-export-plugin) – event export using the AWS SDK, with TypeScript
-1. [GeoIP](https://github.com/PostHog/posthog-plugin-geoip) – advanced event processing using the GeoIP feature, with tests, formatting, linting, TypeScript, and GitHub Actions CI
-1. [PagerDuty](https://github.com/PostHog/posthog-pagerduty-plugin) – periodic job using external HTTP API access
-
-To get up to speed with the environment of plugins, check out [our Plugins overview in PostHog Docs](https://posthog.com/docs/plugins/build/overview).  
-For a crash course, read [the Plugins tutorial in PostHog Docs](https://posthog.com/docs/plugins/build/tutorial).
+**_Available on self-hosted PostHog 1.24.0+_**
 
 ## Installation
 
-1. Open PostHog.
-1. Go to the Plugins page from the sidebar.
-1. Head to the Advanced tab.
-1. "Install from GitHub, GitLab or npm" using this repository's URL.
+1. Access PostHog's **Plugins** page from the sidebar.
+1. To perform installation either:
+    1. go to the **Repository** tab, find this plugin, and **Install** it,
+    1. or go to the **Advanced** tab and **Fetch and install** the following URL in the **Install from GitHub, GitLab or npm** section:  
+       `https://github.com/posthog/s3-export-plugin`.
+1. Configure the plugin by entering your AWS credentials and S3 bucket details.
+1. Watch events roll into S3!
 
-## Submitting your plugin to PostHog
+## Obtaining AWS Credentials
 
-When you're done, you can submit your plugin to our integration library so that it can be used by other users, including those on PostHog Cloud. 
+1. Log in to [AWS](https://console.aws.amazon.com/).
+1. Open [S3](https://s3.console.aws.amazon.com/) in the AWS console and create a new bucket in your chosen region.
+1. Open [IAM](https://console.aws.amazon.com/iam/home) and create a new policy to allow access to this bucket.
+    1. Open "Policies" and click "Create policy"
+    1. On the "Visual Editor" tab, click "Choose a service" and select "S3"
+    1. Under "Actions" select
+        1. "Write" -> "PutObject"
+        1. "Permission Management" -> "PutObjectAcl"
+    1. Under "Resources" select "Specific" and click "object" -> "Add ARN"
+    1. Specify your bucket name and choose "any" for the object name, so the ARN looks something like this: `arn:aws:s3:::my-bucket-name/*`
+    1. Click "Next" until you end up on the "Review Policy" page
+    1. Give it a name
+1. Open [IAM](https://console.aws.amazon.com/iam/home) and create a new user who uses this policy
+    1. Click "Users" -> "Add User"
+    1. Specify a name and choose "Programmatic access"
+    1. Click "Next"
+    1. Select "Attach existing policies directly"
+    1. Select the policy you had just created
+    1. Click "Next" until you reach the "Create user" button. Click that as well.
+    1. Make sure to copy your "Access key" and "Secret access key". The latter will not be shown again.
+1. Install the plugin in PostHog and fill in the "Access key", "Secret access key", "Bucket region" and "Bucket name" fields. Adjust other parameters as needed.
 
-To submit your plugin, [email your plugin GitHub URL to hey@posthog.com](mailto:hey@posthog.com?subject=Submit%20Plugin%20to%20Repository&body=Plugin%20GitHub%20link%3A)
+## Memory Usage
 
-Once we get your email, we'll review the plugin to ensure it's secure, performant, and adheres to best practices. Then, we add it to our official repository and make it available for everyone to use!
+To vastly increase export throughput, this plugin batches events in memory before uploading them to S3. Upload frequency (every minute by default) and maximum upload
+size (1 MB by default) can be configured when the plugin is installed.
+
+You should make sure to keep these numbers reasonable to avoid running out of memory on your server. Note that the values apply to **each** concurrent plugin server thread.
+
+## Incorrect S3 Access Configuration Handling
+
+If you incorrectly configured your bucket or access roles, you will not get an error message. This will change once
+[this PostHog plugin server issue](https://github.com/PostHog/plugin-server/issues/72) is resolved. Thank you for your patience!
 
 ## Questions?
 
-### [Join our Slack community.](https://join.slack.com/t/posthogusers/shared_invite/enQtOTY0MzU5NjAwMDY3LTc2MWQ0OTZlNjhkODk3ZDI3NDVjMDE1YjgxY2I4ZjI4MzJhZmVmNjJkN2NmMGJmMzc2N2U3Yjc3ZjI5NGFlZDQ)
-
-We're here to help you with anything PostHog!
+### [Join the PostHog Users Slack community.](https://posthog.com/slack)

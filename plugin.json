@@ -1,18 +1,127 @@
 {
-    "name": "<TODO: your plugin name>",
-    "url": "<TODO: Your Plugin URL here>",
-    "description": "<TODO: Your Plugin description here>",
-    "main": "index.js",
+    "name": "S3 Export Plugin",
+    "url": "https://github.com/posthog/s3-export-plugin",
+    "description": "Export PostHog events to Amazon S3 on ingestion.",
+    "main": "index.ts",
     "posthogVersion": ">= 1.25.0",
     "config": [
         {
-            "markdown": "<TODO: your plugin config, remove if none>"
+            "markdown": "Read [the documentation](https://github.com/PostHog/s3-export-plugin) here for instructions in getting these keys."
         },
         {
-            "key": "greeting",
-            "name": "What greeting would you like to use?",
+            "key": "awsAccessKey",
+            "name": "AWS Access Key",
             "type": "string",
-            "default": "Hello World!",
+            "default": "",
+            "required": true
+        },
+        {
+            "key": "awsSecretAccessKey",
+            "name": "AWS Secret Access Key",
+            "type": "string",
+            "secret": true,
+            "default": "",
+            "required": true
+        },
+        {
+            "key": "s3BucketName",
+            "name": "S3 Bucket name",
+            "type": "string",
+            "default": "",
+            "required": true
+        },
+        {
+            "key": "awsRegion",
+            "name": "AWS Region",
+            "type": "string",
+            "default": "us-west-1",
+            "hint": "Required if S3 Bucket Endpoint is not set"
+        },
+        {
+            "key": "prefix",
+            "name": "S3 filename prefix",
+            "type": "string",
+            "default": "",
+            "hint": "For example \"backups/posthog/\" (with a trailing slash) to store the backups in a separate folder.",
+            "required": false
+        },
+        {
+            "key": "uploadMinutes",
+            "name": "Upload at most every X minutes",
+            "type": "string",
+            "default": "1",
+            "hint": "If there are events to upload and this many minutes has passed since the last upload, send the events to S3. The value must be between 1 and 60 minutes.",
+            "required": true
+        },
+        {
+            "key": "uploadMegabytes",
+            "name": "Maximum upload size in megabytes",
+            "type": "string",
+            "default": "1",
+            "hint": "Always keep the uploaded files below this size limit, uploading more frequently than the time limit if needed. Events are kept in memory until then, so make sure your server has enough of it. The value must be between 1 and 100 MB.",
+            "required": true
+        },
+        {
+            "key": "eventsToIgnore",
+            "name": "Events to ignore",
+            "type": "string",
+            "default": "$feature_flag_called",
+            "hint": "Comma separated list of events to ignore"
+        },
+        {
+            "key": "uploadFormat",
+            "name": "Format of uploaded files",
+            "type": "choice",
+            "choices": ["jsonl"],
+            "default": "jsonl",
+            "hint": "jsonl: text files with one event per line as JSON"
+        },
+        {
+            "key": "compression",
+            "name": "Compress uploaded files",
+            "type": "choice",
+            "choices": ["gzip", "brotli", "no compression"],
+            "default": "gzip",
+            "hint": "Compressing events before uploading them to S3 keeps costs down. The upload size limits are applied *before* the compression."
+        },
+        {
+            "key": "s3BucketEndpoint",
+            "name": "[ADVANCED] S3 Bucket Endpoint",
+            "type": "string",
+            "default": "",
+            "hint": "For example: `http://127.0.0.1:9000`, which is a `minio` or `localstack` instance that is API compatible with Amazon S3",
+            "required": false
+        },
+        {
+            "key": "s3ForcePathStyle",
+            "name": "[ADVANCED] s3ForcePathStyle",
+            "type": "choice",
+            "choices": ["true", "false"],
+            "default": "false",
+            "hint": "Most be set to `true` for `minio` instances"
+        },
+        {
+            "key": "signatureVersion",
+            "name": "[ADVANCED] Signature version",
+            "type": "choice",
+            "choices": ["v4", ""],
+            "default": "",
+            "hint": "[Docs](https://docs.aws.amazon.com/AmazonS3/latest/API/bucket-policy-s3-sigv4-conditions.html)"
+        },
+        {
+            "key": "sse",
+            "name": "Server-side encryption",
+            "type": "choice",
+            "choices": ["disabled", "AES256", "aws:kms"],
+            "default": "disabled",
+            "hint": "Specifies server-side encryption of the object in S3. Valid values are AES256 and aws:kms. If the parameter is specified but no value is provided, AES256 is used."
+        },
+        {
+            "key": "sseKmsKeyId",
+            "name": "SSE KMS key ID",
+            "type": "string",
+            "default": "",
+            "hint": "The customer-managed AWS Key Management Service (KMS) key ID that should be used to server-side encrypt the object in S3.",
             "required": false
         }
     ]
