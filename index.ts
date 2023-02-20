@@ -106,7 +106,7 @@ export const sendBatchToS3 = async (events: ProcessedPluginEvent[], meta: Plugin
     events.forEach((event) => {
         const params: S3.PutObjectRequest = {
             Bucket: config.s3BucketName,
-            Key: `${suffix}/${dayTime}-${event.event}-${event.person?event.person:event.distinct_id}.jsonl`,
+            Key: `${config.prefix || ''}${day}/${dayTime}-${event.event}-${event.person?event.person:event.distinct_id}.jsonl`,
             Body: convertEventBatchToBuffer([event]),
         }
         if (config.compression === 'gzip') {
