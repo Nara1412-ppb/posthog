@@ -3,7 +3,6 @@ import { randomBytes } from 'crypto'
 import { brotliCompressSync, gzipSync } from 'zlib'
 import { Plugin, PluginMeta, ProcessedPluginEvent, RetryError } from '@posthog/plugin-scaffold'
 import { ManagedUpload } from 'aws-sdk/clients/s3'
-import * as XLSX from 'xlsx'
 import { Blob } from 'aws-sdk/lib/dynamodb/document_client'
 
 export type PluginConfig = {
@@ -33,15 +32,18 @@ type S3Plugin = Plugin<{
 }>
 
 export function convertEventBatchToBuffer(event: ProcessedPluginEvent, fileName:string): Buffer {
-    const EXCEL_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8';
-    let ws = XLSX.utils.json_to_sheet([event]);
-    let wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Events");
-    var out = XLSX.write(wb, {bookType:'xlsx',  type: 'binary'});
-    // let binaryData = [];
-    // binaryData.push(out);
-    return Buffer.from(out,'binary');
+    let str:any =  arrayToCSV([event])
+    return Buffer.from(str,'binary');
     // return Buffer.from(events.map((event) => JSON.stringify(event)).join('\n'), 'utf8')
+}
+
+function arrayToCSV(objArray:any) {
+    const array = typeof objArray !== 'object' ? JSON.parse(objArray) : objArray;
+    let str = `${Object.keys(array[0]).map(value => `"${value}"`).join(",")}` + '\r\n';
+    return array.reduce((str:string, next:any) => {
+        str += `${Object.values(next).map(value => `"${value}"`).join(",")}` + '\r\n';
+        return str;
+       }, str);
 }
 
 export const setupPlugin: S3Plugin['setupPlugin'] = (meta) => {
