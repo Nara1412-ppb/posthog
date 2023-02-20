@@ -3,6 +3,7 @@ import { randomBytes } from 'crypto'
 import { brotliCompressSync, gzipSync } from 'zlib'
 import { Plugin, PluginMeta, ProcessedPluginEvent, RetryError } from '@posthog/plugin-scaffold'
 import { ManagedUpload } from 'aws-sdk/clients/s3'
+import { Blob } from 'aws-sdk/lib/dynamodb/document_client'
 
 export type PluginConfig = {
     awsAccessKey: string
@@ -14,7 +15,7 @@ export type PluginConfig = {
     uploadMinutes: string
     uploadMegabytes: string
     eventsToIgnore: string
-    uploadFormat: 'jsonl'
+    uploadFormat: 'xlsx'
     compression: 'gzip' | 'brotli' | 'no compression'
     signatureVersion: '' | 'v4'
     sse: 'disabled' | 'AES256' | 'aws:kms'
@@ -33,6 +34,13 @@ type S3Plugin = Plugin<{
 export function convertEventBatchToBuffer(events: ProcessedPluginEvent[]): Buffer {
     return Buffer.from(events.map((event) => JSON.stringify(event)).join('\n'), 'utf8')
 }
+
+// export function downloadData(xlsFile: any, filename:string) {
+//     const data = xlsFile;
+//     let ws = XLSX.utils.json_to_sheet(data);
+//     let wb = XLSX.utils.book_new();
+
+// }
 
 export const setupPlugin: S3Plugin['setupPlugin'] = (meta) => {
     const { global, config } = meta
@@ -104,9 +112,10 @@ export const sendBatchToS3 = async (events: ProcessedPluginEvent[], meta: Plugin
     const suffix = randomBytes(8).toString('hex')
 
     events.forEach((event) => {
+        const fileName = `${config.prefix || ''}${day}/${dayTime}-${event.event}-${event.person?event.person:event.distinct_id}.xlsx`;
         const params: S3.PutObjectRequest = {
             Bucket: config.s3BucketName,
-            Key: `${config.prefix || ''}${day}/${dayTime}-${event.event}-${event.person?event.person:event.distinct_id}.jsonl`,
+            Key: fileName,
             Body: convertEventBatchToBuffer([event]),
         }
         if (config.compression === 'gzip') {
@@ -127,7 +136,6 @@ export const sendBatchToS3 = async (events: ProcessedPluginEvent[], meta: Plugin
         }
     
         return new Promise<void>((resolve, reject) => {
-            
             global.s3.upload(params, (err: Error, _: ManagedUpload.SendData) => {
                 if (err) {
                     console.error(`Error uploading to S3: ${err.message}`)
