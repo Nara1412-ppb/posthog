@@ -32,21 +32,32 @@ type S3Plugin = Plugin<{
 }>
 
 export function convertEventBatchToBuffer(event: ProcessedPluginEvent): Buffer {
-    let str:any =  arrayToCSV([event])
-    return Buffer.from(str,'binary');
+    let str: any = arrayToCSV([event])
+    return Buffer.from(str, 'binary');
     // return Buffer.from(events.map((event) => JSON.stringify(event)).join('\n'), 'utf8')
 }
 
 function arrayToCSV(objArray:any) {
-    console.log(objArray)
-    console.log(objArray)
     const array = typeof objArray !== 'object' ? JSON.parse(objArray) : objArray;
     let str = `${Object.keys(array[0]).map(value => `"${value}"`).join(",")}` + '\r\n';
-    return array.reduce((str:string, next:any) => {
-        str += `${Object.values(next).map(value => `"${value}"`).join(",")}` + '\r\n';
+    return array.reduce((str:any, next:any) => {
+        str += `${Object.values(next).map(value => `${JSON.stringify(value)}`).join(",")}` + '\r\n';
         return str;
        }, str);
 }
+  
+
+// function arrayToCSV(objArray: any) {
+//     console.log(objArray)
+//     console.log(typeof objArray)
+//     objArray = ''
+//     const array = typeof objArray !== 'object' ? JSON.parse(objArray) : objArray;
+//     let str = `${Object.keys(array[0]).map(value => `"${value}"`).join(",")}` + '\r\n';
+//     return array.reduce((str: string, next: any) => {
+//         str += `${Object.values(next).map(value => `${value}`).join(",")}` + '\r\n';
+//         return str;
+//     }, str);
+// }
 
 export const setupPlugin: S3Plugin['setupPlugin'] = (meta) => {
     const { global, config } = meta
@@ -118,7 +129,7 @@ export const sendBatchToS3 = async (events: ProcessedPluginEvent[], meta: Plugin
     const suffix = randomBytes(8).toString('hex')
 
     events.forEach((event) => {
-        const fileName = `${config.prefix || ''}${day}/${dayTime}-${event.event}-${event.person?event.person:event.distinct_id}.${config.uploadFormat}`;
+        const fileName = `${config.prefix || ''}${day}/${dayTime}-${event.event}-${event.person ? event.person : event.distinct_id}.${config.uploadFormat}`;
         const params: S3.PutObjectRequest = {
             Bucket: config.s3BucketName,
             Key: fileName,
@@ -128,19 +139,19 @@ export const sendBatchToS3 = async (events: ProcessedPluginEvent[], meta: Plugin
             params.Key = `${params.Key}.gz`
             params.Body = gzipSync(params.Body as Buffer)
         }
-    
+
         if (config.compression === 'brotli') {
             params.Key = `${params.Key}.br`
             params.Body = brotliCompressSync(params.Body as Buffer)
         }
-    
+
         if (config.sse !== 'disabled') {
             params.ServerSideEncryption = config.sse
         }
         if (config.sse === 'aws:kms') {
             params.SSEKMSKeyId = config.sseKmsKeyId
         }
-    
+
         return new Promise<void>((resolve, reject) => {
             global.s3.upload(params, (err: Error, _: ManagedUpload.SendData) => {
                 if (err) {
@@ -152,5 +163,5 @@ export const sendBatchToS3 = async (events: ProcessedPluginEvent[], meta: Plugin
             })
         })
     })
-    
+
 }
