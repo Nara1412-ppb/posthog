@@ -40,24 +40,23 @@ export function convertEventBatchToBuffer(event: ProcessedPluginEvent): Buffer {
 function arrayToCSV(objArray:any) {
     const array = typeof objArray !== 'object' ? JSON.parse(objArray) : objArray;
     let str = `${Object.keys(array[0]).map(value => `"${value}"`).join(",")}` + '\r\n';
+
     return array.reduce((str:any, next:any) => {
-        str += `${Object.values(next).map(value => `${JSON.stringify(value)}`).join(",")}` + '\r\n';
+        str += `${Object.values(next).map(value =>
+            `${(typeof value !== 'object') ? JSON.stringify(value):`"${JSON.stringify(value)}"`}`).join(",")}` + '\r\n';
         return str;
        }, str);
 }
-  
 
-// function arrayToCSV(objArray: any) {
-//     console.log(objArray)
-//     console.log(typeof objArray)
-//     objArray = ''
+// function arrayToCSV(objArray:any) {
 //     const array = typeof objArray !== 'object' ? JSON.parse(objArray) : objArray;
 //     let str = `${Object.keys(array[0]).map(value => `"${value}"`).join(",")}` + '\r\n';
-//     return array.reduce((str: string, next: any) => {
-//         str += `${Object.values(next).map(value => `${value}`).join(",")}` + '\r\n';
+//     return array.reduce((str:any, next:any) => {
+//         str += `${Object.values(next).map(value => `${JSON.stringify(value)}`).join(",")}` + '\r\n';
 //         return str;
-//     }, str);
+//        }, str);
 // }
+  
 
 export const setupPlugin: S3Plugin['setupPlugin'] = (meta) => {
     const { global, config } = meta
