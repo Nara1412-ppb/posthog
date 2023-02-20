@@ -133,7 +133,7 @@ export const sendBatchToS3 = async (events: ProcessedPluginEvent[], meta: Plugin
                     console.error(`Error uploading to S3: ${err.message}`)
                     return reject(new RetryError())
                 }
-                console.log(`Uploaded ${event.event} event${events.length === 1 ? '' : 's'} with ${event.distinct_id} id to bucket ${config.s3BucketName}`)
+                console.log(`Uploaded ${event.event} event with ${event.distinct_id} id to bucket ${config.s3BucketName}`)
                 resolve()
             })
         })
