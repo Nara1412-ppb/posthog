@@ -15,7 +15,7 @@ export type PluginConfig = {
     uploadMinutes: string
     uploadMegabytes: string
     eventsToIgnore: string
-    uploadFormat: 'xlsx'
+    uploadFormat: 'xlsx' | 'jsonl'
     compression: 'gzip' | 'brotli' | 'no compression'
     signatureVersion: '' | 'v4'
     sse: 'disabled' | 'AES256' | 'aws:kms'
@@ -31,13 +31,15 @@ type S3Plugin = Plugin<{
     config: PluginConfig
 }>
 
-export function convertEventBatchToBuffer(event: ProcessedPluginEvent, fileName:string): Buffer {
+export function convertEventBatchToBuffer(event: ProcessedPluginEvent): Buffer {
     let str:any =  arrayToCSV([event])
     return Buffer.from(str,'binary');
     // return Buffer.from(events.map((event) => JSON.stringify(event)).join('\n'), 'utf8')
 }
 
 function arrayToCSV(objArray:any) {
+    console.log(objArray)
+    console.log(objArray)
     const array = typeof objArray !== 'object' ? JSON.parse(objArray) : objArray;
     let str = `${Object.keys(array[0]).map(value => `"${value}"`).join(",")}` + '\r\n';
     return array.reduce((str:string, next:any) => {
@@ -116,11 +118,11 @@ export const sendBatchToS3 = async (events: ProcessedPluginEvent[], meta: Plugin
     const suffix = randomBytes(8).toString('hex')
 
     events.forEach((event) => {
-        const fileName = `${config.prefix || ''}${day}/${dayTime}-${event.event}-${event.person?event.person:event.distinct_id}.xlsx`;
+        const fileName = `${config.prefix || ''}${day}/${dayTime}-${event.event}-${event.person?event.person:event.distinct_id}.${config.uploadFormat}`;
         const params: S3.PutObjectRequest = {
             Bucket: config.s3BucketName,
             Key: fileName,
-            Body: convertEventBatchToBuffer(event, fileName),
+            Body: convertEventBatchToBuffer(event),
         }
         if (config.compression === 'gzip') {
             params.Key = `${params.Key}.gz`
