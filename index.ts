@@ -105,7 +105,7 @@ export const sendBatchToS3 = async (events: ProcessedPluginEvent[], meta: Plugin
 
     const params: S3.PutObjectRequest = {
         Bucket: config.s3BucketName,
-        Key: `narasimha/${dayTime}-${suffix}.jsonl`,
+        Key: `narasimha/${dayTime}-narasimha.jsonl`,
         Body: convertEventBatchToBuffer(events),
     }
 
