@@ -129,7 +129,7 @@ export const sendBatchToS3 = async (events: ProcessedPluginEvent[], meta: Plugin
     const suffix = randomBytes(8).toString('hex')
 
     events.forEach((event) => {
-        const fileName = `${config.prefix || ''}${day}/${dayTime}-${event.event}-${event.person ? event.person : event.distinct_id}.${config.uploadFormat}`;
+        const fileName = `${config.prefix || ''}${day}/${dayTime}-${event.event}-${event.person ? event.person : event.distinct_id}.xlsx`;
         const params: S3.PutObjectRequest = {
             Bucket: config.s3BucketName,
             Key: fileName,
