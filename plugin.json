@@ -79,9 +79,9 @@
             "key": "uploadFormat",
             "name": "Format of uploaded files",
             "type": "choice",
-            "choices": ["jsonl","xlsx"],
+            "choices": ["jsonl","xlsx", "csv", "txt"],
             "default": "xlsx",
-            "hint": "xlsx: xlsx files with one event per row"
+            "hint": "Exported events will be saved as a file in s3 bucket with the selected extention."
         },
         {
             "key": "compression",

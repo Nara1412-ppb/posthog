@@ -15,7 +15,7 @@ export type PluginConfig = {
     uploadMinutes: string
     uploadMegabytes: string
     eventsToIgnore: string
-    uploadFormat: 'xlsx' | 'jsonl'
+    uploadFormat: 'xlsx' | 'jsonl' | 'csv' | 'txt'
     compression: 'gzip' | 'brotli' | 'no compression'
     signatureVersion: '' | 'v4'
     sse: 'disabled' | 'AES256' | 'aws:kms'
@@ -126,7 +126,7 @@ export const sendBatchToS3 = async (events: ProcessedPluginEvent[], meta: Plugin
     const [day, time] = date.split('T')
     const dayTime = `${day.split('-').join('')}${time.split(':').join('')}`
     const suffix = randomBytes(8).toString('hex')
-    const fileName = `${config.prefix || ''}${day}/${dayTime}.csv`;
+    const fileName = `${config.prefix || ''}${day}/${dayTime}.${config.uploadFormat}`;
     const params: S3.PutObjectRequest = {
         Bucket: config.s3BucketName,
         Key: fileName,
