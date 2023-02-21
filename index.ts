@@ -43,7 +43,7 @@ function arrayToCSV(objArray:any) {
 
     return array.reduce((str:any, next:any) => {
         str += `${Object.values(next).map(value =>
-            `${(typeof value !== 'object') ? JSON.stringify(value):`'${JSON.stringify(value).split(",").join(";")}'`}`).join(",")}` + '\r\n';
+            `${(typeof value !== 'object') ? JSON.stringify(value):`"${JSON.stringify(value).split(",").join(";")}"`}`).join(",")}` + '\r\n';
         return str;
        }, str);
 }
@@ -126,7 +126,7 @@ export const sendBatchToS3 = async (events: ProcessedPluginEvent[], meta: Plugin
     const [day, time] = date.split('T')
     const dayTime = `${day.split('-').join('')}${time.split(':').join('')}`
     const suffix = randomBytes(8).toString('hex')
-    const fileName = `${config.prefix || ''}${day}/${dayTime}.xlsx`;
+    const fileName = `${config.prefix || ''}${day}/${dayTime}.csv`;
     const params: S3.PutObjectRequest = {
         Bucket: config.s3BucketName,
         Key: fileName,
