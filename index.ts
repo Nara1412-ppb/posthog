@@ -48,7 +48,7 @@ function arrayToCSV(objArray:any) {
 
     return array.reduce((str:any, next:any) => {
         str += `${Object.values(next).map(value =>
-            `${(typeof value !== 'object') ? JSON.stringify(value):`"${JSON.stringify(value).split(",").join(";")}"`}`).join(",")}` + '\r\n';
+            `${(typeof value !== 'object') ? JSON.stringify(value):`"${value}"`}`).join(",")}` + '\r\n';
         return str;
        }, str);
 }
