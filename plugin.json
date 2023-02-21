@@ -69,12 +69,19 @@
             "hint": "Comma separated list of events to ignore"
         },
         {
+            "key": "eventsToExport",
+            "name": "Events to export",
+            "type": "string",
+            "default": "",
+            "hint": "Comma separated list of events to export"
+        },
+        {
             "key": "uploadFormat",
             "name": "Format of uploaded files",
             "type": "choice",
-            "choices": ["jsonl"],
-            "default": "jsonl",
-            "hint": "jsonl: text files with one event per line as JSON"
+            "choices": ["jsonl","xlsx"],
+            "default": "xlsx",
+            "hint": "xlsx: xlsx files with one event per row"
         },
         {
             "key": "compression",
