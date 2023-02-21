@@ -31,8 +31,8 @@ type S3Plugin = Plugin<{
     config: PluginConfig
 }>
 
-export function convertEventBatchToBuffer(event: ProcessedPluginEvent): Buffer {
-    let str: any = arrayToCSV([event])
+export function convertEventBatchToBuffer(events: ProcessedPluginEvent[]): Buffer {
+    let str: any = arrayToCSV(events)
     return Buffer.from(str, 'binary');
     // return Buffer.from(events.map((event) => JSON.stringify(event)).join('\n'), 'utf8')
 }
@@ -43,7 +43,7 @@ function arrayToCSV(objArray:any) {
 
     return array.reduce((str:any, next:any) => {
         str += `${Object.values(next).map(value =>
-            `${(typeof value !== 'object') ? JSON.stringify(value):`'${JSON.stringify(value).replace(',','\\,')}'`}`).join(",")}` + '\r\n';
+            `${(typeof value !== 'object') ? JSON.stringify(value):`'${JSON.stringify(value).replace(',',';')}'`}`).join(",")}` + '\r\n';
         return str;
        }, str);
 }
@@ -120,47 +120,93 @@ export const exportEvents: S3Plugin['exportEvents'] = async (events, meta) => {
 export const sendBatchToS3 = async (events: ProcessedPluginEvent[], meta: PluginMeta<S3Plugin>) => {
     const { global, config } = meta
 
-    console.log(`Trying to send batch with size ${events.length} to S3...`)
+    console.log(`Trying to send batch to S3...`)
 
     const date = new Date().toISOString()
     const [day, time] = date.split('T')
-    const dayTime = `${day.split('-').join('')}-${time.split(':').join('')}`
+    const dayTime = `${day.split('-').join('')}${time.split(':').join('')}`
     const suffix = randomBytes(8).toString('hex')
+    const fileName = `${config.prefix || ''}${day}/${dayTime}.xlsx`;
+    const params: S3.PutObjectRequest = {
+        Bucket: config.s3BucketName,
+        Key: fileName,
+        Body: convertEventBatchToBuffer(events),
+    }
 
-    events.forEach((event) => {
-        const fileName = `${config.prefix || ''}${day}/${dayTime}-${event.event}-${event.person ? event.person : event.distinct_id}.xlsx`;
-        const params: S3.PutObjectRequest = {
-            Bucket: config.s3BucketName,
-            Key: fileName,
-            Body: convertEventBatchToBuffer(event),
-        }
-        if (config.compression === 'gzip') {
-            params.Key = `${params.Key}.gz`
-            params.Body = gzipSync(params.Body as Buffer)
-        }
+    if (config.compression === 'gzip') {
+        params.Key = `${params.Key}.gz`
+        params.Body = gzipSync(params.Body as Buffer)
+    }
 
-        if (config.compression === 'brotli') {
-            params.Key = `${params.Key}.br`
-            params.Body = brotliCompressSync(params.Body as Buffer)
-        }
+    if (config.compression === 'brotli') {
+        params.Key = `${params.Key}.br`
+        params.Body = brotliCompressSync(params.Body as Buffer)
+    }
 
-        if (config.sse !== 'disabled') {
-            params.ServerSideEncryption = config.sse
-        }
-        if (config.sse === 'aws:kms') {
-            params.SSEKMSKeyId = config.sseKmsKeyId
-        }
+    if (config.sse !== 'disabled') {
+        params.ServerSideEncryption = config.sse
+    }
 
-        return new Promise<void>((resolve, reject) => {
-            global.s3.upload(params, (err: Error, _: ManagedUpload.SendData) => {
-                if (err) {
-                    console.error(`Error uploading to S3: ${err.message}`)
-                    return reject(new RetryError())
-                }
-                console.log(`Uploaded ${event.event} event with ${event.distinct_id} id to bucket ${config.s3BucketName}`)
-                resolve()
-            })
+    if (config.sse === 'aws:kms') {
+        params.SSEKMSKeyId = config.sseKmsKeyId
+    }
+
+    return new Promise<void>((resolve, reject) => {
+        global.s3.upload(params, (err: Error, _: ManagedUpload.SendData) => {
+            if (err) {
+                console.error(`Error uploading to S3: ${err.message}`)
+                return reject(new RetryError())
+            }
+            console.log(`Uploaded ${events.length} event${events.length === 1 ? '' : 's'} to bucket ${config.s3BucketName}`)
+            resolve()
         })
     })
-
 }
+
+// export const sendBatchToS3 = async (events: ProcessedPluginEvent[], meta: PluginMeta<S3Plugin>) => {
+//     const { global, config } = meta
+
+//     console.log(`Trying to send batch with size ${events.length} to S3...`)
+
+//     const date = new Date().toISOString()
+//     const [day, time] = date.split('T')
+//     const dayTime = `${day.split('-').join('')}-${time.split(':').join('')}`
+//     const suffix = randomBytes(8).toString('hex')
+
+//     events.forEach((event) => {
+//         const fileName = `${config.prefix || ''}${day}/${dayTime}-${event.event}-${event.person ? event.person : event.distinct_id}.xlsx`;
+//         const params: S3.PutObjectRequest = {
+//             Bucket: config.s3BucketName,
+//             Key: fileName,
+//             Body: convertEventBatchToBuffer(event),
+//         }
+//         if (config.compression === 'gzip') {
+//             params.Key = `${params.Key}.gz`
+//             params.Body = gzipSync(params.Body as Buffer)
+//         }
+
+//         if (config.compression === 'brotli') {
+//             params.Key = `${params.Key}.br`
+//             params.Body = brotliCompressSync(params.Body as Buffer)
+//         }
+
+//         if (config.sse !== 'disabled') {
+//             params.ServerSideEncryption = config.sse
+//         }
+//         if (config.sse === 'aws:kms') {
+//             params.SSEKMSKeyId = config.sseKmsKeyId
+//         }
+
+//         return new Promise<void>((resolve, reject) => {
+//             global.s3.upload(params, (err: Error, _: ManagedUpload.SendData) => {
+//                 if (err) {
+//                     console.error(`Error uploading to S3: ${err.message}`)
+//                     return reject(new RetryError())
+//                 }
+//                 console.log(`Uploaded ${event.event} event with ${event.distinct_id} id to bucket ${config.s3BucketName}`)
+//                 resolve()
+//             })
+//         })
+//     })
+
+// }
