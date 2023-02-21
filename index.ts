@@ -15,6 +15,7 @@ export type PluginConfig = {
     uploadMinutes: string
     uploadMegabytes: string
     eventsToIgnore: string
+    eventsToExport:string
     uploadFormat: 'xlsx' | 'jsonl' | 'csv' | 'txt'
     compression: 'gzip' | 'brotli' | 'no compression'
     signatureVersion: '' | 'v4'
@@ -26,15 +27,19 @@ export type PluginConfig = {
 type S3Plugin = Plugin<{
     global: {
         s3: S3
-        eventsToIgnore: Set<string>
+        eventsToIgnore: Set<string>,
+        eventsToExport: Set<string>
     }
     config: PluginConfig
 }>
 
-export function convertEventBatchToBuffer(events: ProcessedPluginEvent[]): Buffer {
-    let str: any = arrayToCSV(events)
-    return Buffer.from(str, 'binary');
-    // return Buffer.from(events.map((event) => JSON.stringify(event)).join('\n'), 'utf8')
+export function convertEventBatchToBuffer(events: ProcessedPluginEvent[], config:PluginConfig): Buffer {
+    if(config.uploadFormat === 'xlsx' || config.uploadFormat === 'csv') {
+        let str: any = arrayToCSV(events)
+        return Buffer.from(str, 'binary');
+    } else {
+        return Buffer.from(events.map((event) => JSON.stringify(event)).join('\n'), 'utf8')
+    }
 }
 
 function arrayToCSV(objArray:any) {
@@ -47,16 +52,6 @@ function arrayToCSV(objArray:any) {
         return str;
        }, str);
 }
-
-// function arrayToCSV(objArray:any) {
-//     const array = typeof objArray !== 'object' ? JSON.parse(objArray) : objArray;
-//     let str = `${Object.keys(array[0]).map(value => `"${value}"`).join(",")}` + '\r\n';
-//     return array.reduce((str:any, next:any) => {
-//         str += `${Object.values(next).map(value => `${JSON.stringify(value)}`).join(",")}` + '\r\n';
-//         return str;
-//        }, str);
-// }
-  
 
 export const setupPlugin: S3Plugin['setupPlugin'] = (meta) => {
     const { global, config } = meta
@@ -74,6 +69,10 @@ export const setupPlugin: S3Plugin['setupPlugin'] = (meta) => {
     }
     if (config.sse === 'aws:kms' && !config.sseKmsKeyId) {
         throw new Error('AWS KMS encryption requested but no KMS key ID provided!')
+    }
+
+    if((config.eventsToExport.length > 0) && (config.eventsToExport.split(",").join("").trim().length === 0)) {
+        throw new Error('Events to export should be comma separated and clear whitespaces if any!')
     }
 
     const s3Config: S3.ClientConfiguration = {
@@ -102,6 +101,10 @@ export const setupPlugin: S3Plugin['setupPlugin'] = (meta) => {
     global.eventsToIgnore = new Set(
         config.eventsToIgnore ? config.eventsToIgnore.split(',').map((event) => event.trim()) : null
     )
+
+    global.eventsToExport = new Set(
+        config.eventsToExport ? config.eventsToExport.split(",").map((event) => event.trim()) : null
+    )
 }
 
 export const getSettings: S3Plugin['getSettings'] = (_) => {
@@ -111,9 +114,12 @@ export const getSettings: S3Plugin['getSettings'] = (_) => {
 }
 
 export const exportEvents: S3Plugin['exportEvents'] = async (events, meta) => {
-    const eventsToExport = events.filter(event => !meta.global.eventsToIgnore.has(event.event))
+    let eventsToExport = events.filter(event => !meta.global.eventsToIgnore.has(event.event))
+    if(meta.global.eventsToExport.size > 0) {
+        eventsToExport = events.filter(event => meta.global.eventsToExport.has(event.event))
+    }
     if (eventsToExport.length > 0) {
-        await sendBatchToS3(events, meta)
+        await sendBatchToS3(eventsToExport, meta)
     }
 }
 
@@ -130,7 +136,7 @@ export const sendBatchToS3 = async (events: ProcessedPluginEvent[], meta: Plugin
     const params: S3.PutObjectRequest = {
         Bucket: config.s3BucketName,
         Key: fileName,
-        Body: convertEventBatchToBuffer(events),
+        Body: convertEventBatchToBuffer(events, config),
     }
 
     if (config.compression === 'gzip') {
@@ -157,6 +163,11 @@ export const sendBatchToS3 = async (events: ProcessedPluginEvent[], meta: Plugin
                 console.error(`Error uploading to S3: ${err.message}`)
                 return reject(new RetryError())
             }
+            let eventNames = "";
+            events.forEach((event:ProcessedPluginEvent) => {
+                eventNames += event.event;
+            })
+            console.log(`eventnames : ${eventNames}`)
             console.log(`Uploaded ${events.length} event${events.length === 1 ? '' : 's'} to bucket ${config.s3BucketName}`)
             resolve()
         })
