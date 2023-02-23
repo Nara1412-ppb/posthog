@@ -4,7 +4,6 @@ import { brotliCompressSync, gzipSync } from 'zlib'
 import { Plugin, PluginMeta, ProcessedPluginEvent, RetryError } from '@posthog/plugin-scaffold'
 import { ManagedUpload } from 'aws-sdk/clients/s3'
 import { Blob } from 'aws-sdk/lib/dynamodb/document_client'
-import { Workbook, Worksheet } from 'exceljs'
 
 export type PluginConfig = {
     awsAccessKey: string
@@ -36,34 +35,32 @@ type S3Plugin = Plugin<{
 
 export function convertEventBatchToBuffer(events: ProcessedPluginEvent[], config:PluginConfig): Buffer {
     if(config.uploadFormat === 'xlsx' || config.uploadFormat === 'csv') {
-        let strBuffer: any = arrayToCSV(events)
-        console.log(typeof strBuffer);
-        return strBuffer;
-        // return Buffer.from(str, 'binary');
+        let str:string = arrayToCSV(events)
+        return Buffer.from(str, 'binary');
     } else {
         return Buffer.from(events.map((event) => JSON.stringify(event)).join('\n'), 'utf8')
     }
 }
 
 function arrayToCSV(objArray:any) {
-    const workbook = new Workbook();
-    const worksheet = workbook.addWorksheet('My Sheet');
-    const newRows = worksheet.addRows(objArray);
-    worksheet.commit();
-    const buffer = workbook.xlsx.writeBuffer();
-    buffer.then((buffer) => {
-        return buffer;
-    }).catch(e => {
-        console.log(e)
-    })
-    // const array = typeof objArray !== 'object' ? JSON.parse(objArray) : objArray;
-    // let str = `${Object.keys(array[0]).map(value => `"${value}"`).join(",")}` + '\r\n';
+    // const workbook = new Workbook();
+    // const worksheet = workbook.addWorksheet('My Sheet');
+    // const newRows = worksheet.addRows(objArray);
+    // worksheet.commit();
+    // const buffer = workbook.xlsx.writeBuffer();
+    // buffer.then((buffer) => {
+    //     return buffer;
+    // }).catch(e => {
+    //     console.log(e)
+    // })
+    const array = typeof objArray !== 'object' ? JSON.parse(objArray) : objArray;
+    let str = `${Object.keys(array[0]).map(value => `"${value}"`).join(",")}` + '\r\n';
 
-    // return array.reduce((str:any, next:any) => {
-    //     str += `${Object.values(next).map(value =>
-    //         `${(typeof value !== 'object') ? JSON.stringify(value):`"${value}"`}`).join(",")}` + '\r\n';
-    //     return str;
-    //    }, str);
+    return array.reduce((str:any, next:any) => {
+        str += `${Object.values(next).map(value =>
+            `${(typeof value !== 'object') ? JSON.stringify(value):`"${value}"`}`).join(",")}` + '\r\n';
+        return str;
+       }, str);
 }
 
 export const setupPlugin: S3Plugin['setupPlugin'] = (meta) => {
